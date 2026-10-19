@@ -39,7 +39,7 @@ async function fetchSamCsv() {
     out.push({
       id: clean(r.NoticeId), src: 'federal', source: 'SAM.gov', title,
       solicitation: clean(r['Sol#']), agency: clean(r['Department/Ind.Agency']), subAgency: clean(r['Sub-Tier']), office: clean(r.Office),
-      state: clean(r.PopState) || clean(r.State), city: clean(r.PopCity) || clean(r.City),
+      state: clean(r.PopState), city: clean(r.PopCity) || (title.match(/,\s*([A-Z][a-z]+(?: [A-Z][a-z]+)*) Area\b/)?.[1] ?? '') + (clean(r.PopCity) || !/ Area\b/.test(title) ? '' : ' area'), // performance location only; never fall back to office city
       type, posted: isoDate(r.PostedDate), deadline, setAside: clean(r.SetASide) || 'None', naics,
       url: clean(r.Link) || `https://sam.gov/opp/${clean(r.NoticeId)}/view`,
     });
