@@ -5,16 +5,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { parse } from 'csv-parse';
+import { countyFor, SOCAL_COUNTIES } from './geo.mjs';
 
 const UA = 'PostWatch/0.1 (public-data aggregator)';
 const CSV_URL = 'https://sam.gov/api/prod/fileextractservices/v1/api/download/Contract%20Opportunities/datagov/ContractOpportunitiesFullCSV.csv?privacy=Public';
 const NAICS = '561612';
 const KW = /\b(security guards?|armed guards?|unarmed guards?|guard services?|patrol services?|security officers? services?|security officer|protective services officers?)\b/i;
-const EXCLUDE = /\b(coast guard|national guard|guardrail|guard rail|cyber|software|camera|cctv|alarm system|access control system)\b/i;
+const EXCLUDE = /\b(freeway service patrol|tow service|coast guard|national guard|guardrail|guard rail|cyber|software|camera|cctv|alarm system|access control system)\b/i;
 const SYSTEMS = /\b(alarms?|cctv|camera|video surveillance|access control system|intrusion detection|fire alarm|security systems?)\b/i;
 const category = t => SYSTEMS.test(t) && !/\bguards?\b|patrol|officers?\b/i.test(t) ? 'systems' : 'guard';
 const LA_CITIES = /\b(los angeles|long beach|pasadena|santa monica|burbank|glendale|torrance|inglewood|compton|carson|downey|el monte|pomona|west covina|norwalk|lancaster|palmdale|santa clarita|whittier|alhambra|hawthorne|gardena|culver city|beverly hills|el segundo|lakewood|bellflower|redondo beach|manhattan beach|san pedro|wilmington|van nuys|north hollywood|sylmar|san fernando|monterey park|arcadia|montebello|cerritos|lynwood|south gate|huntington park|paramount|azusa|covina|diamond bar|la mirada|claremont|calabasas|malibu|marina del rey|playa vista|vernon|bell gardens|rosemead|baldwin park|la puente|lomita|signal hill|port hueneme|los alamitos|seal beach|fort macarthur)\b/i;
-const isLA = b => b.state === 'CA' && (LA_CITIES.test(b.city || '') || LA_CITIES.test(b.title || '') || b.source === 'LA County');
+const isLA = b => b.county === 'Los Angeles';
+const isGuardText = t => (KW.test(t) || /\b(guards?|patrol)\b|security (officer|services|personnel)/i.test(t)) && !EXCLUDE.test(t);
 const sources = {};
 const now = new Date();
 const today = now.toISOString().slice(0, 10);
@@ -44,7 +46,7 @@ async function fetchSamCsv() {
     out.push({
       id: clean(r.NoticeId), src: 'federal', source: 'SAM.gov', title,
       solicitation: clean(r['Sol#']), agency: clean(r['Department/Ind.Agency']), subAgency: clean(r['Sub-Tier']), office: clean(r.Office),
-      state: clean(r.PopState), city: clean(r.PopCity) || (title.match(/,\s*([A-Z][a-z]+(?: [A-Z][a-z]+)*) Area\b/)?.[1] ?? '') + (clean(r.PopCity) || !/ Area\b/.test(title) ? '' : ' area'), // performance location only; never fall back to office city
+      zip: clean(r.PopZip), state: clean(r.PopState), city: clean(r.PopCity) || (title.match(/,\s*([A-Z][a-z]+(?: [A-Z][a-z]+)*) Area\b/)?.[1] ?? '') + (clean(r.PopCity) || !/ Area\b/.test(title) ? '' : ' area'), // performance location only; never fall back to office city
       type, posted: isoDate(r.PostedDate), deadline, setAside: clean(r.SetASide) || 'None', naics,
       category: category(title), url: clean(r.Link) || `https://sam.gov/opp/${clean(r.NoticeId)}/view`,
     });
@@ -137,6 +139,58 @@ async function fetchManual() {
   return out;
 }
 
+async function fetchRampLA() {
+  // City of Los Angeles RAMP open bids, published as an official open dataset (data.lacity.org, Socrata).
+  const res = await fetch('https://data.lacity.org/resource/hf3r-utnq.json?$limit=5000', { headers: { 'User-Agent': UA } });
+  if (!res.ok) throw new Error('RAMP LA HTTP ' + res.status);
+  const rows = await res.json(); const out = [];
+  for (const r of rows) {
+    const t = clean(r.title);
+    if (!isGuardText(t)) continue;
+    const deadline = isoDate(r.closedate ? r.closedate.replace(/\.000$/, 'Z') : null);
+    if (deadline && deadline < now.toISOString()) continue;
+    out.push({ id: 'ramp-' + r.rampid, src: 'local', source: 'City of LA (RAMP)', title: t, solicitation: clean(r.rampid), agency: 'City of Los Angeles', subAgency: clean(r.department),
+      state: 'CA', city: 'Los Angeles', county: 'Los Angeles', type: clean(r.type) || 'Solicitation', posted: isoDate(r.bidpost ? r.bidpost.replace(/\.000$/, 'Z') : null), deadline,
+      setAside: 'See notice', naics: '', category: category(t), url: r.url?.url || 'https://www.rampla.org/s/opportunities' });
+  }
+  sources.rampla = { ok: true, method: 'data.lacity.org open dataset hf3r-utnq', rowsScanned: rows.length, matched: out.length };
+  return out;
+}
+
+async function fetchOpenGov() {
+  // OpenGov Procurement public portal data (same anonymous JSON the public portals load). SoCal CA governments only.
+  const H = { 'User-Agent': UA, 'content-type': 'application/json' };
+  const res = await fetch('https://api.procurement.opengov.com/api/v1/government', { headers: H });
+  if (!res.ok) throw new Error('OpenGov list HTTP ' + res.status);
+  const govs = (await res.json()).filter(g => g.state === 'CA' && g.government?.code && !/opengov/i.test(g.city || ''))
+    .map(g => ({ code: g.government.code, name: clean(g.name), city: clean(g.city), county: countyFor({ state: 'CA', city: g.city, zip: g.zipCode, text: g.name }) }))
+    .filter(g => g.county);
+  const out = []; let scanned = 0, errors = 0;
+  const one = async g => {
+    try {
+      for (let page = 1; page <= 5; page++) {
+        const r = await fetch(`https://api.procurement.opengov.com/api/v1/government/${g.code}/project/public`, { method: 'POST', headers: H, body: JSON.stringify({ limit: 100, offset: (page - 1) * 100, page }) });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const rows = (await r.json()).rows || []; scanned += rows.length;
+        const open = rows.filter(p => p.status === 'open');
+        for (const p of open) {
+          const t = clean(p.title);
+          if (!isGuardText(t)) continue;
+          const deadline = isoDate(p.proposalDeadline);
+          if (deadline && deadline < now.toISOString()) continue;
+          out.push({ id: `og-${g.code}-${p.id}`, src: 'local', source: 'OpenGov: ' + g.name, title: t, solicitation: clean(p.financialId), agency: g.name, subAgency: clean(p.department?.name),
+            state: 'CA', city: g.city, county: g.county, type: clean(p.template?.title) || 'Solicitation', posted: isoDate(p.releaseProjectDate), deadline,
+            setAside: 'See notice', naics: '', category: category(t), url: `https://procurement.opengov.com/portal/${g.code}/projects/${p.id}` });
+        }
+        if (rows.length < 100 || open.length < rows.length) break; // open projects are listed first
+      }
+    } catch (e) { errors++; }
+  };
+  for (let i = 0; i < govs.length; i += 6) await Promise.all(govs.slice(i, i + 6).map(one));
+  sources.opengov = { ok: true, method: 'OpenGov public portal JSON (SoCal CA governments)', portals: govs.length, portalErrors: errors, rowsScanned: scanned, matched: out.length };
+  return out;
+}
+
 async function fetchAwards() {
   const end = today; const start = new Date(now - 180 * 864e5).toISOString().slice(0, 10);
   const body = { filters: { naics_codes: { require: [NAICS] }, award_type_codes: ['A', 'B', 'C', 'D'], time_period: [{ start_date: start, end_date: end }] },
@@ -159,20 +213,24 @@ async function fetchAwards() {
 
 async function safe(name, fn) { try { return await fn(); } catch (e) { console.error(name, 'FAILED:', e.message); sources[name] = { ok: false, error: e.message }; return []; } }
 
-const [fed, tx, lac, man, awards] = await Promise.all([safe('sam', fetchSamCsv), safe('texas', fetchTexasEsbd), safe('lacounty', fetchLACounty), safe('community', fetchManual), safe('usaspending', fetchAwards)]);
+const [fed, tx, lac, man, ramp, og, awards] = await Promise.all([safe('sam', fetchSamCsv), safe('texas', fetchTexasEsbd), safe('lacounty', fetchLACounty), safe('community', fetchManual), safe('rampla', fetchRampLA), safe('opengov', fetchOpenGov), safe('usaspending', fetchAwards)]);
 Object.assign(sources, {
   caleprocure: { ok: false, skipped: true, note: 'Cal eProcure returns 403 to non-browser clients (WAF). Not bypassed.' },
   planetbids: { ok: false, skipped: true, note: 'PlanetBids API rejects direct access (DIRECT_ACCESS) and portals redirect to a JS app; not bypassed. Covers Long Beach, Pasadena, Santa Monica, Burbank, Glendale, Torrance, San Diego etc.' },
-  rampla_labavn: { ok: false, skipped: true, note: 'RAMP LA is a Salesforce JS app with no public JSON; labavn.org connection fails.' },
+  labavn: { ok: false, skipped: true, note: 'labavn.org connection fails from scripts (RAMP LA now covered via data.lacity.org).' },
+  bonfire: { ok: false, skipped: true, note: 'Bonfire portals (e.g. sbcounty.bonfirehub.com) robots.txt disallows all crawling.' },
+  publicpurchase_periscope: { ok: false, skipped: true, note: 'PublicPurchase and Periscope/BidSync bid details require vendor login.' },
+  sandiego_forecast: { ok: false, skipped: true, note: 'San Diego County Socrata dataset is a procurement forecast, not open bids.' },
+  transit_ports_uc: { ok: false, skipped: true, note: 'MTS/SANDAG, NCTD, Metrolink, RTA, Omnitrans, Port of San Diego, SAN, JWA, UC campuses: not found on OpenGov (OCTA and ONT are, and are covered); mostly PlanetBids/Bonfire/BidNet/own JS portals with no public feed. Covered only if federal (SAM) or later community submissions.' },
   lametro: { ok: false, skipped: true, note: 'business.metro.net connection fails from scripts.' },
   lausd_polb: { ok: false, skipped: true, note: 'LAUSD and Port of Long Beach return 403 to scripts.' },
   others: { ok: false, skipped: true, note: 'Port of LA / LAWA pages have no machine-readable bid list; BidNet Direct terms disallow automated access.' },
 });
 sources.florida = { ok: false, skipped: true, note: 'Florida VBS search is form/JS-driven; skipped for MVP.' };
 
-const bids = [...fed, ...tx, ...lac, ...man].map(b => ({ ...b, la: isLA(b) })).sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999'));
+const bids = [...fed, ...tx, ...lac, ...man, ...ramp, ...og].map(b => { const county = b.county || countyFor({ state: b.state, city: b.city, zip: b.zip, text: b.title + ' ' + (b.office || '') }); delete b.zip; return { ...b, county, socal: SOCAL_COUNTIES.includes(county), la: county === 'Los Angeles' }; }).sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999'));
 const byState = {}; for (const b of bids) { const s = b.state || '??'; byState[s] = (byState[s] || 0) + 1; }
-const latest = { generatedAt: now.toISOString(), sources, counts: { total: bids.length, federal: fed.length, state: tx.length + lac.length, community: man.length, ca: bids.filter(b => b.state === 'CA').length, la: bids.filter(b => b.la).length, awards: awards.length }, byState, bids, awards };
+const latest = { generatedAt: now.toISOString(), sources, counts: { total: bids.length, federal: fed.length, state: tx.length + lac.length + ramp.length + og.length, community: man.length, ca: bids.filter(b => b.state === 'CA').length, socal: bids.filter(b => b.socal).length, la: bids.filter(b => b.la).length, awards: awards.length }, byState, bids, awards };
 // Keep previous data if every bid source failed.
 const file = path.resolve('data/latest.json');
 if (!bids.length && fs.existsSync(file)) { console.error('No bids fetched; keeping previous data'); process.exit(1); }

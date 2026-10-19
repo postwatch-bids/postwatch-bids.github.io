@@ -20,7 +20,7 @@
 </div></header>
 <section class="hero"><div class="wrap">
   <h1>Open security guard &amp; patrol bids, in one place</h1>
-  <p>Free list of active federal and state solicitations for guard, armed guard and patrol services. Updated twice a day from SAM.gov and public state portals.</p>
+  <p>Free list of active federal and state solicitations for guard, armed guard and patrol services. Updated twice a day from SAM.gov and public state and local portals, with Southern California coverage.</p>
   <div class="stats" id="stats"></div>
   <p class="updated" id="updated"></p>
 </div></section>
@@ -32,6 +32,7 @@
       <button class="tab" data-view="soon">Closing soon (14 days)</button>
       <button class="tab" data-view="new">New this week</button>
       <button class="tab" data-view="ca">California</button>
+      <button class="tab" data-view="socal">SoCal</button>
       <button class="tab" data-view="la">LA area</button>
     </div>
     <div class="filters">
@@ -40,6 +41,7 @@
       <select id="fType" aria-label="Notice type"><option value="">All notice types</option></select>
       <select id="fSet" aria-label="Set-aside"><option value="">Any set-aside</option></select>
       <select id="fSrc" aria-label="Source"><option value="">Federal + state</option><option value="federal">Federal</option><option value="state">State/local</option></select>
+      <select id="fCounty" aria-label="County"><option value="">All counties</option></select>
       <select id="fSource" aria-label="Source portal"><option value="">All sources</option></select>
     </div>
     <p class="count" id="count"></p>
@@ -90,7 +92,7 @@
   </section>
 </main>
 <footer><div class="wrap">
-  <p>Data comes from public sources: SAM.gov, USAspending.gov, the Texas ESBD and the LA County Open Bid List. It may be incomplete or out of date, so <b>always verify details on the original notice</b> before you bid. PostWatch is not affiliated with any government agency.</p>
+  <p>Data comes from public sources: SAM.gov, USAspending.gov, the Texas ESBD, LA County, City of LA (data.lacity.org) and public OpenGov portals. It may be incomplete or out of date, so <b>always verify details on the original notice</b> before you bid. PostWatch is not affiliated with any government agency.</p>
   <p class="muted">© <span id="yr"></span> PostWatch</p>
 </div></footer>
 <script src="assets/app.js"></script>

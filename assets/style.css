@@ -41,3 +41,5 @@ details{background:#fff;border:1px solid var(--line);border-radius:6px;padding:1
 .subform button{background:var(--navy);color:#fff;border:0;border-radius:5px;padding:9px 16px;font:inherit;cursor:pointer}
 .subform button.ghost{background:#fff;color:var(--navy);border:1px solid var(--navy)}
 @media(max-width:760px){.subform{grid-template-columns:1fr 1fr}.subform label:first-child,.subform label:nth-child(2),.subform .wide{grid-column:1/-1}}
+.badge.socal{background:#e3eefa;color:#1f4f86}.badge.cty{background:#eef0f2;color:#4a5866}
+@media(min-width:761px){.filters{grid-template-columns:2fr repeat(6,1fr)}}
