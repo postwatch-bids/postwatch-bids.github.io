@@ -1,7 +1,8 @@
 name: Update data & deploy
 on:
   schedule:
-    - cron: '15 11 * * *'   # daily ~11:15 UTC (SAM extract refreshes overnight)
+    - cron: '15 13 * * *'   # twice daily (UTC)
+    - cron: '15 23 * * *'
   workflow_dispatch:
   push:
     branches: [main]
@@ -36,7 +37,7 @@ jobs:
       - name: Build Pages artifact
         run: |
           mkdir -p _site/data
-          cp -r index.html assets .nojekyll preview.png _site/
+          cp -r index.html assets .nojekyll preview.png sitemap.xml robots.txt _site/
           cp data/latest.json _site/data/
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }
