@@ -105,6 +105,38 @@ async function fetchLACounty() {
   return out;
 }
 
+function normManual(m, id) {
+  const title = clean(m.title), state = clean(m.state).toUpperCase().slice(0, 2);
+  if (!title || !state || !/^https?:\/\//.test(m.url || '')) return null;
+  const dl = /^\d{4}-\d{2}-\d{2}$/.test(clean(m.deadline)) ? m.deadline + 'T23:59:00-08:00' : m.deadline;
+  const deadline = isoDate(dl);
+  if (!deadline || deadline < now.toISOString()) return null; // auto-hide past deadline
+  return { id, src: 'community', source: 'Community submitted', title, solicitation: clean(m.solicitation), agency: clean(m.agency), subAgency: '',
+    state, city: clean(m.city), type: clean(m.type) || 'Solicitation', posted: isoDate(m.posted) || null, deadline, setAside: clean(m.setAside) || 'See notice',
+    naics: '', category: category(title), url: m.url };
+}
+
+async function fetchManual() {
+  const out = [];
+  const j = JSON.parse(fs.readFileSync('data/manual-bids.json', 'utf8'));
+  (j.bids || []).forEach((m, i) => { const b = normManual(m, 'man-' + i); if (b) out.push(b); });
+  // Issues labeled 'approved' (from the "Submit a bid" issue form) are also merged. Needs GITHUB_TOKEN + GITHUB_REPOSITORY (set in Actions).
+  const repo = process.env.GITHUB_REPOSITORY, token = process.env.GITHUB_TOKEN;
+  let issues = 0;
+  if (repo && token) {
+    const res = await fetch(`https://api.github.com/repos/${repo}/issues?labels=approved&state=all&per_page=100`, { headers: { Authorization: 'Bearer ' + token, 'User-Agent': UA, Accept: 'application/vnd.github+json' } });
+    if (!res.ok) throw new Error('GitHub issues HTTP ' + res.status);
+    for (const is of await res.json()) {
+      if (is.pull_request) continue;
+      const f = {}; for (const m of (is.body || '').matchAll(/### ([^\n]+)\n+([\s\S]*?)(?=\n### |$)/g)) f[m[1].trim().toLowerCase()] = m[2].trim().replace(/^_No response_$/, '');
+      const b = normManual({ title: f['bid title'], agency: f['agency / city'], city: f['city of performance'], state: f['state (2 letters)'], deadline: f['response deadline (yyyy-mm-dd)'], url: f['link to the official notice'], posted: is.created_at }, 'gh-' + is.number);
+      if (b) { out.push(b); issues++; }
+    }
+  }
+  sources.community = { ok: true, method: 'data/manual-bids.json + approved GitHub issues', matched: out.length, fromIssues: issues };
+  return out;
+}
+
 async function fetchAwards() {
   const end = today; const start = new Date(now - 180 * 864e5).toISOString().slice(0, 10);
   const body = { filters: { naics_codes: { require: [NAICS] }, award_type_codes: ['A', 'B', 'C', 'D'], time_period: [{ start_date: start, end_date: end }] },
@@ -127,7 +159,7 @@ async function fetchAwards() {
 
 async function safe(name, fn) { try { return await fn(); } catch (e) { console.error(name, 'FAILED:', e.message); sources[name] = { ok: false, error: e.message }; return []; } }
 
-const [fed, tx, lac, awards] = await Promise.all([safe('sam', fetchSamCsv), safe('texas', fetchTexasEsbd), safe('lacounty', fetchLACounty), safe('usaspending', fetchAwards)]);
+const [fed, tx, lac, man, awards] = await Promise.all([safe('sam', fetchSamCsv), safe('texas', fetchTexasEsbd), safe('lacounty', fetchLACounty), safe('community', fetchManual), safe('usaspending', fetchAwards)]);
 Object.assign(sources, {
   caleprocure: { ok: false, skipped: true, note: 'Cal eProcure returns 403 to non-browser clients (WAF). Not bypassed.' },
   planetbids: { ok: false, skipped: true, note: 'PlanetBids API rejects direct access (DIRECT_ACCESS) and portals redirect to a JS app; not bypassed. Covers Long Beach, Pasadena, Santa Monica, Burbank, Glendale, Torrance, San Diego etc.' },
@@ -138,9 +170,9 @@ Object.assign(sources, {
 });
 sources.florida = { ok: false, skipped: true, note: 'Florida VBS search is form/JS-driven; skipped for MVP.' };
 
-const bids = [...fed, ...tx, ...lac].map(b => ({ ...b, la: isLA(b) })).sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999'));
+const bids = [...fed, ...tx, ...lac, ...man].map(b => ({ ...b, la: isLA(b) })).sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999'));
 const byState = {}; for (const b of bids) { const s = b.state || '??'; byState[s] = (byState[s] || 0) + 1; }
-const latest = { generatedAt: now.toISOString(), sources, counts: { total: bids.length, federal: fed.length, state: tx.length + lac.length, ca: bids.filter(b => b.state === 'CA').length, la: bids.filter(b => b.la).length, awards: awards.length }, byState, bids, awards };
+const latest = { generatedAt: now.toISOString(), sources, counts: { total: bids.length, federal: fed.length, state: tx.length + lac.length, community: man.length, ca: bids.filter(b => b.state === 'CA').length, la: bids.filter(b => b.la).length, awards: awards.length }, byState, bids, awards };
 // Keep previous data if every bid source failed.
 const file = path.resolve('data/latest.json');
 if (!bids.length && fs.existsSync(file)) { console.error('No bids fetched; keeping previous data'); process.exit(1); }

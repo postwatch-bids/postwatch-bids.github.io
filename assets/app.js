@@ -31,3 +31,13 @@ $('#awardsNote').textContent=`${d.awards.length} contract awards in the last 180
 $('#awTbl tbody').innerHTML=aw.slice(0,25).map(a=>`<tr><td><a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.recipient)}</a></td><td>${esc(a.subAgency||a.agency)}</td><td>${esc(a.state||'—')}</td><td>${esc(a.start||'')} → ${esc(a.end||'')}</td><td class="r">${usd(a.amount)}</td></tr>`).join('');
 render();
 })();
+
+(()=>{const f=document.getElementById('subForm');if(!f)return;let via='email';
+f.querySelectorAll('button[data-via]').forEach(b=>b.addEventListener('click',()=>via=b.dataset.via));
+f.addEventListener('submit',e=>{e.preventDefault();const v=Object.fromEntries(new FormData(f));v.state=v.state.toUpperCase();
+ const body=`Bid title: ${v.title}\nAgency / city: ${v.agency}\nCity: ${v.city}\nState: ${v.state}\nDeadline: ${v.deadline}\nLink: ${v.link}\nSubmitter email: ${v.email}\n\n(Submitted via PostWatch. Reviewed before publishing.)`;
+ if(via==='email'){location.href='mailto:octopuslaboratoryllc@gmail.com?subject='+encodeURIComponent('PostWatch bid submission: '+v.title)+'&body='+encodeURIComponent(body);
+  document.getElementById('subMsg').textContent='Your email app should open with the bid filled in. Press send. Thanks!';}
+ else{const q=new URLSearchParams({template:'submit-bid.yml',title:'[Bid] '+v.title,...v});
+  window.open('https://github.com/postwatch-bids/postwatch-bids.github.io/issues/new?'+q,'_blank','noopener');}
+});})();

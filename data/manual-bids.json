@@ -1,0 +1,4 @@
+{
+  "_help": "Approved community bids. Add an object to 'bids' and commit. Required: title, agency, state, deadline (YYYY-MM-DD), url. Optional: city, type, setAside, notes. Past-deadline entries are hidden automatically.",
+  "bids": []
+}

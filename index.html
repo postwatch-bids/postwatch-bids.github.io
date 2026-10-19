@@ -16,7 +16,7 @@
 <body>
 <header class="top"><div class="wrap bar">
   <a class="brand" href="#"><span class="logo">PW</span> PostWatch</a>
-  <nav><a href="#bids">Open bids</a><a href="#awards">Recent awards</a><a href="#faq">FAQ</a></nav>
+  <nav><a href="#bids">Open bids</a><a href="#submit" class="navbtn">Submit a bid</a><a href="#awards">Recent awards</a><a href="#faq">FAQ</a></nav>
 </div></header>
 <section class="hero"><div class="wrap">
   <h1>Open security guard &amp; patrol bids, in one place</h1>
@@ -46,6 +46,21 @@
     <div class="tablewrap"><table id="tbl"><thead><tr>
       <th data-k="title">Opportunity</th><th data-k="state">Location</th><th data-k="type">Type</th><th data-k="setAside">Set-aside</th><th data-k="posted">Posted</th><th data-k="deadline">Deadline ▲</th>
     </tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section id="submit" class="card submitcard"><h2>Submit a bid</h2>
+    <p class="muted">Saw a city, county or agency guard bid we're missing? Send it in. Every submission is reviewed before it appears. Your email is never published.</p>
+    <form id="subForm" class="subform">
+      <label>Bid title*<input name="title" required maxlength="200" placeholder="Security guard services at City Hall"></label>
+      <label>Agency / city*<input name="agency" required maxlength="120" placeholder="City of Pasadena"></label>
+      <label>City<input name="city" maxlength="60" placeholder="Pasadena"></label>
+      <label>State*<input name="state" required maxlength="2" pattern="[A-Za-z]{2}" placeholder="CA"></label>
+      <label>Deadline*<input name="deadline" type="date" required></label>
+      <label class="wide">Link to official notice*<input name="link" type="url" required placeholder="https://"></label>
+      <label class="wide">Your email (optional)<input name="email" type="email" placeholder="you@company.com"></label>
+      <div class="wide actions"><button type="submit" data-via="email">Send by email</button><button type="submit" data-via="github" class="ghost">Or submit on GitHub</button></div>
+      <p class="muted wide" id="subMsg">"Send by email" opens your email app with everything filled in, so you just press send. No account needed.</p>
+    </form>
   </section>
 
   <div class="grid2">

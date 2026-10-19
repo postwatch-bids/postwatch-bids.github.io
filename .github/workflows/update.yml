@@ -4,10 +4,13 @@ on:
     - cron: '15 13 * * *'   # twice daily (UTC)
     - cron: '15 23 * * *'
   workflow_dispatch:
+  issues:
+    types: [labeled]
   push:
     branches: [main]
 permissions:
   contents: write
+  issues: read
   pages: write
   id-token: write
 concurrency:
@@ -15,6 +18,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   update:
+    if: github.event_name != 'issues' || github.event.label.name == 'approved'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -26,6 +30,7 @@ jobs:
         run: node scripts/update.mjs
         env:
           SAM_API_KEY: ${{ secrets.SAM_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Commit data if changed
         run: |
           git config user.name 'PostWatch'

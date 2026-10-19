@@ -1,0 +1,31 @@
+name: Submit a bid
+description: Share an open security guard / patrol bid. A moderator reviews it before it appears on PostWatch.
+title: "[Bid] "
+labels: ["bid-submission"]
+body:
+  - type: input
+    id: title
+    attributes: { label: Bid title }
+    validations: { required: true }
+  - type: input
+    id: agency
+    attributes: { label: Agency / city }
+    validations: { required: true }
+  - type: input
+    id: city
+    attributes: { label: City of performance }
+  - type: input
+    id: state
+    attributes: { label: State (2 letters), placeholder: CA }
+    validations: { required: true }
+  - type: input
+    id: deadline
+    attributes: { label: Response deadline (YYYY-MM-DD) }
+    validations: { required: true }
+  - type: input
+    id: link
+    attributes: { label: Link to the official notice }
+    validations: { required: true }
+  - type: input
+    id: email
+    attributes: { label: "Your email (optional; NOTE: GitHub issues are public, leave blank to stay private)" }

@@ -33,3 +33,11 @@ details{background:#fff;border:1px solid var(--line);border-radius:6px;padding:1
  .stat{min-width:0;flex:1 1 40%}#tbl thead{display:none}#tbl tr{display:block;border-bottom:1px solid var(--line);padding:6px 0}#tbl td{display:inline-block;border:0;padding:3px 11px}#tbl td.t{display:block}}
 .badge.local{background:#e9f3ea;color:#2c6a35}.badge.la{background:#fdf1dc;color:#8a5a10}.badge.sys{background:#f3e8e8;color:#8a2f2f}
 @media(min-width:761px){.filters{grid-template-columns:2fr repeat(5,1fr)}}
+.navbtn{background:#fff;color:var(--navy)!important;padding:5px 10px;border-radius:4px;font-weight:600}
+.submitcard{margin:26px 0}.subform{display:grid;grid-template-columns:2fr 2fr 1.2fr .6fr 1fr;gap:10px;margin-top:10px}
+.subform label{display:flex;flex-direction:column;font-size:12px;color:var(--steel);gap:4px;font-weight:600}
+.subform input{padding:8px 10px;border:1px solid var(--line);border-radius:5px;font:inherit;font-weight:400;color:var(--txt);min-width:0}
+.subform .wide{grid-column:span 2}.subform .actions{display:flex;gap:8px;align-items:end}.subform p.wide{grid-column:1/-1;margin:0}
+.subform button{background:var(--navy);color:#fff;border:0;border-radius:5px;padding:9px 16px;font:inherit;cursor:pointer}
+.subform button.ghost{background:#fff;color:var(--navy);border:1px solid var(--navy)}
+@media(max-width:760px){.subform{grid-template-columns:1fr 1fr}.subform label:first-child,.subform label:nth-child(2),.subform .wide{grid-column:1/-1}}
