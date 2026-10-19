@@ -11,6 +11,10 @@ const CSV_URL = 'https://sam.gov/api/prod/fileextractservices/v1/api/download/Co
 const NAICS = '561612';
 const KW = /\b(security guards?|armed guards?|unarmed guards?|guard services?|patrol services?|security officers? services?|security officer|protective services officers?)\b/i;
 const EXCLUDE = /\b(coast guard|national guard|guardrail|guard rail|cyber|software|camera|cctv|alarm system|access control system)\b/i;
+const SYSTEMS = /\b(alarms?|cctv|camera|video surveillance|access control system|intrusion detection|fire alarm|security systems?)\b/i;
+const category = t => SYSTEMS.test(t) && !/\bguards?\b|patrol|officers?\b/i.test(t) ? 'systems' : 'guard';
+const LA_CITIES = /\b(los angeles|long beach|pasadena|santa monica|burbank|glendale|torrance|inglewood|compton|carson|downey|el monte|pomona|west covina|norwalk|lancaster|palmdale|santa clarita|whittier|alhambra|hawthorne|gardena|culver city|beverly hills|el segundo|lakewood|bellflower|redondo beach|manhattan beach|san pedro|wilmington|van nuys|north hollywood|sylmar|san fernando|monterey park|arcadia|montebello|cerritos|lynwood|south gate|huntington park|paramount|azusa|covina|diamond bar|la mirada|claremont|calabasas|malibu|marina del rey|playa vista|vernon|bell gardens|rosemead|baldwin park|la puente|lomita|signal hill|port hueneme|los alamitos|seal beach|fort macarthur)\b/i;
+const isLA = b => b.state === 'CA' && (LA_CITIES.test(b.city || '') || LA_CITIES.test(b.title || '') || b.source === 'LA County');
 const sources = {};
 const now = new Date();
 const today = now.toISOString().slice(0, 10);
@@ -29,7 +33,8 @@ async function fetchSamCsv() {
     const naics = clean(r.NaicsCode);
     const title = clean(r.Title);
     const desc = (r.Description || '').slice(0, 3000);
-    const hit = naics === NAICS || (KW.test(title) && !EXCLUDE.test(title)) || (KW.test(desc.slice(0, 600)) && /^5616/.test(naics));
+    const psc = clean(r.ClassificationCode);
+    const hit = naics === NAICS || psc === 'S206' || (KW.test(title) && !EXCLUDE.test(title)) || (KW.test(desc.slice(0, 600)) && /^5616/.test(naics));
     if (!hit) continue;
     const type = clean(r.Type);
     if (/award notice|justification/i.test(type)) continue; // not biddable
@@ -41,7 +46,7 @@ async function fetchSamCsv() {
       solicitation: clean(r['Sol#']), agency: clean(r['Department/Ind.Agency']), subAgency: clean(r['Sub-Tier']), office: clean(r.Office),
       state: clean(r.PopState), city: clean(r.PopCity) || (title.match(/,\s*([A-Z][a-z]+(?: [A-Z][a-z]+)*) Area\b/)?.[1] ?? '') + (clean(r.PopCity) || !/ Area\b/.test(title) ? '' : ' area'), // performance location only; never fall back to office city
       type, posted: isoDate(r.PostedDate), deadline, setAside: clean(r.SetASide) || 'None', naics,
-      url: clean(r.Link) || `https://sam.gov/opp/${clean(r.NoticeId)}/view`,
+      category: category(title), url: clean(r.Link) || `https://sam.gov/opp/${clean(r.NoticeId)}/view`,
     });
   }
   sources.sam = { ok: true, method: 'public CSV extract (keyless)', rowsScanned: rows, matched: out.length };
@@ -63,7 +68,7 @@ async function fetchTexasEsbd() {
         if (deadline && deadline < now.toISOString()) continue;
         out.push({ id: 'tx-' + l.internalid, src: 'state', source: 'Texas ESBD', title: t, solicitation: clean(l.solicitationId),
           agency: clean(l.agencyName).replace(/ - [A-Z0-9]+$/, ''), state: 'TX', city: '', type: 'Solicitation', posted: isoDate(l.postingDate), deadline,
-          setAside: 'See notice', naics: '', url: `https://www.txsmartbuy.gov/esbd/${encodeURIComponent(l.solicitationId)}` });
+          setAside: 'See notice', naics: '', category: category(t), url: `https://www.txsmartbuy.gov/esbd/${encodeURIComponent(l.solicitationId)}` });
       }
       if (lines.length < 50) break;
     }
@@ -71,6 +76,33 @@ async function fetchTexasEsbd() {
   const uniq = [...new Map(out.map(o => [o.id, o])).values()];
   sources.texas = { ok: true, method: 'public ESBD search JSON', matched: uniq.length };
   return uniq;
+}
+
+async function fetchLACounty() {
+  // LA County public Open Bid List (no login). Server-rendered HTML; one page with PageSize=1000.
+  const base = 'https://camisvr.co.la.ca.us/LACoBids/BidLookUp/OpenBidList';
+  const res = await fetch(base + '?page=1&TextSearch=%7C%7C%7C&FieldSort=BidTitle&DirectionSort=Asc&PageSize=1000', { headers: { 'User-Agent': 'Mozilla/5.0 ' + UA } });
+  if (!res.ok) throw new Error('LA County HTTP ' + res.status);
+  const html = await res.text();
+  const strip = x => clean(x.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&'));
+  const rows = html.split(/<tr[\s>]/).slice(1).filter(r => r.includes("selectBid('"));
+  if (!rows.length) throw new Error('LA County: no rows parsed (layout changed?)');
+  const out = [];
+  for (const r of rows) {
+    const tds = [...r.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map(m => m[1]);
+    const num = strip(tds[0] || '');
+    const title = strip((tds[1] || '').match(/id="LabelTitle\d+"[^>]*>([\s\S]*?)<\/label>/)?.[1] || '');
+    const comm = strip((tds[1] || '').match(/id="LabelComm\d+"[^>]*>([\s\S]*?)<\/label>/)?.[1] || '').replace(/^Commodity:\s*/, '');
+    const text = title + ' ' + comm;
+    if (!(KW.test(text) || /\b(guard|patrol)\b|security (officer|services)/i.test(text)) || EXCLUDE.test(text) || /consulting services - security/i.test(comm) && !KW.test(title)) continue;
+    const deadline = isoDate(strip(tds[4] || '').replace(/(\d+\/\d+\/\d+ \d+:\d+ [AP]M)/, '$1 PST')) || null;
+    if (deadline && deadline < now.toISOString()) continue;
+    out.push({ id: 'lac-' + num, src: 'local', source: 'LA County', title, solicitation: num, agency: 'County of Los Angeles', subAgency: strip(tds[3] || ''),
+      state: 'CA', city: 'Los Angeles County', type: strip(tds[2] || 'Solicitation'), posted: null, deadline, setAside: 'See notice', naics: '', category: category(text),
+      url: base + '?TextSearch=' + encodeURIComponent(num) });
+  }
+  sources.lacounty = { ok: true, method: 'public Open Bid List HTML', rowsScanned: rows.length, matched: out.length };
+  return out;
 }
 
 async function fetchAwards() {
@@ -95,13 +127,20 @@ async function fetchAwards() {
 
 async function safe(name, fn) { try { return await fn(); } catch (e) { console.error(name, 'FAILED:', e.message); sources[name] = { ok: false, error: e.message }; return []; } }
 
-const [fed, tx, awards] = await Promise.all([safe('sam', fetchSamCsv), safe('texas', fetchTexasEsbd), safe('usaspending', fetchAwards)]);
-sources.california = { ok: false, skipped: true, note: 'Cal eProcure is a JS app with no stable public JSON; skipped for MVP.' };
+const [fed, tx, lac, awards] = await Promise.all([safe('sam', fetchSamCsv), safe('texas', fetchTexasEsbd), safe('lacounty', fetchLACounty), safe('usaspending', fetchAwards)]);
+Object.assign(sources, {
+  caleprocure: { ok: false, skipped: true, note: 'Cal eProcure returns 403 to non-browser clients (WAF). Not bypassed.' },
+  planetbids: { ok: false, skipped: true, note: 'PlanetBids API rejects direct access (DIRECT_ACCESS) and portals redirect to a JS app; not bypassed. Covers Long Beach, Pasadena, Santa Monica, Burbank, Glendale, Torrance, San Diego etc.' },
+  rampla_labavn: { ok: false, skipped: true, note: 'RAMP LA is a Salesforce JS app with no public JSON; labavn.org connection fails.' },
+  lametro: { ok: false, skipped: true, note: 'business.metro.net connection fails from scripts.' },
+  lausd_polb: { ok: false, skipped: true, note: 'LAUSD and Port of Long Beach return 403 to scripts.' },
+  others: { ok: false, skipped: true, note: 'Port of LA / LAWA pages have no machine-readable bid list; BidNet Direct terms disallow automated access.' },
+});
 sources.florida = { ok: false, skipped: true, note: 'Florida VBS search is form/JS-driven; skipped for MVP.' };
 
-const bids = [...fed, ...tx].sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999'));
+const bids = [...fed, ...tx, ...lac].map(b => ({ ...b, la: isLA(b) })).sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999'));
 const byState = {}; for (const b of bids) { const s = b.state || '??'; byState[s] = (byState[s] || 0) + 1; }
-const latest = { generatedAt: now.toISOString(), sources, counts: { total: bids.length, federal: fed.length, state: tx.length, awards: awards.length }, byState, bids, awards };
+const latest = { generatedAt: now.toISOString(), sources, counts: { total: bids.length, federal: fed.length, state: tx.length + lac.length, ca: bids.filter(b => b.state === 'CA').length, la: bids.filter(b => b.la).length, awards: awards.length }, byState, bids, awards };
 // Keep previous data if every bid source failed.
 const file = path.resolve('data/latest.json');
 if (!bids.length && fs.existsSync(file)) { console.error('No bids fetched; keeping previous data'); process.exit(1); }

@@ -31,6 +31,8 @@
       <button class="tab active" data-view="all">All open</button>
       <button class="tab" data-view="soon">Closing soon (14 days)</button>
       <button class="tab" data-view="new">New this week</button>
+      <button class="tab" data-view="ca">California</button>
+      <button class="tab" data-view="la">LA area</button>
     </div>
     <div class="filters">
       <input id="q" type="search" placeholder="Search title, agency, city…" aria-label="Search">
@@ -38,6 +40,7 @@
       <select id="fType" aria-label="Notice type"><option value="">All notice types</option></select>
       <select id="fSet" aria-label="Set-aside"><option value="">Any set-aside</option></select>
       <select id="fSrc" aria-label="Source"><option value="">Federal + state</option><option value="federal">Federal</option><option value="state">State/local</option></select>
+      <select id="fSource" aria-label="Source portal"><option value="">All sources</option></select>
     </div>
     <p class="count" id="count"></p>
     <div class="tablewrap"><table id="tbl"><thead><tr>
@@ -72,7 +75,7 @@
   </section>
 </main>
 <footer><div class="wrap">
-  <p>Data comes from public sources: SAM.gov, USAspending.gov and the Texas ESBD. It may be incomplete or out of date, so <b>always verify details on the original notice</b> before you bid. PostWatch is not affiliated with any government agency.</p>
+  <p>Data comes from public sources: SAM.gov, USAspending.gov, the Texas ESBD and the LA County Open Bid List. It may be incomplete or out of date, so <b>always verify details on the original notice</b> before you bid. PostWatch is not affiliated with any government agency.</p>
   <p class="muted">© <span id="yr"></span> PostWatch</p>
 </div></footer>
 <script src="assets/app.js"></script>

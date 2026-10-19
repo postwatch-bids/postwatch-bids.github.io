@@ -31,3 +31,5 @@ details{background:#fff;border:1px solid var(--line);border-radius:6px;padding:1
 .muted{color:var(--steel);font-size:13px}footer{background:var(--navy);color:#c9d5e3;padding:20px 0;margin-top:30px;font-size:13px}footer .muted{color:#8fa3ba}
 @media(max-width:760px){.filters{grid-template-columns:1fr 1fr}.filters input{grid-column:1/-1}.grid2{grid-template-columns:1fr}.hero h1{font-size:22px}nav a{margin-left:10px;font-size:13px}
  .stat{min-width:0;flex:1 1 40%}#tbl thead{display:none}#tbl tr{display:block;border-bottom:1px solid var(--line);padding:6px 0}#tbl td{display:inline-block;border:0;padding:3px 11px}#tbl td.t{display:block}}
+.badge.local{background:#e9f3ea;color:#2c6a35}.badge.la{background:#fdf1dc;color:#8a5a10}.badge.sys{background:#f3e8e8;color:#8a2f2f}
+@media(min-width:761px){.filters{grid-template-columns:2fr repeat(5,1fr)}}
