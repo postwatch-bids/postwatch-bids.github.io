@@ -1,0 +1,1 @@
+{"name":"postwatch","private":true,"type":"module","scripts":{"update":"node scripts/update.mjs","serve":"npx --yes http-server -p 8080 -c-1 ."},"dependencies":{"csv-parse":"^5.5.6"}}

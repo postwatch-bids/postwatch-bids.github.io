@@ -1,0 +1,49 @@
+name: Update data & deploy
+on:
+  schedule:
+    - cron: '15 11 * * *'   # daily ~11:15 UTC (SAM extract refreshes overnight)
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: postwatch-update
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - name: Update data (keyless public sources; SAM_API_KEY optional, unused by default)
+        run: node scripts/update.mjs
+        env:
+          SAM_API_KEY: ${{ secrets.SAM_API_KEY }}
+      - name: Commit data if changed
+        run: |
+          git config user.name 'PostWatch'
+          git config user.email 'postwatch@users.noreply.github.com'
+          git add data/latest.json
+          if git diff --cached --quiet; then echo "No data changes"; exit 0; fi
+          git commit -m "data: update $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase -X theirs origin main && git push origin HEAD:main
+      - name: Build Pages artifact
+        run: |
+          mkdir -p _site/data
+          cp -r index.html assets .nojekyll preview.png _site/
+          cp data/latest.json _site/data/
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+  deploy:
+    needs: update
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: '${{ steps.deployment.outputs.page_url }}' }
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

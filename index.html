@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PostWatch: Open Security Guard &amp; Patrol Bids and Contracts (US)</title>
+<meta name="description" content="Free, daily-updated list of open security guard, armed guard and patrol services bids from SAM.gov and state portals, plus recent federal awards for NAICS 561612.">
+<link rel="canonical" href="https://postwatch.example.com/">
+<meta property="og:type" content="website"><meta property="og:title" content="PostWatch: Open Security Guard Bids">
+<meta property="og:description" content="Open security guard & patrol contracts across the US, updated daily from public sources.">
+<meta property="og:url" content="https://postwatch.example.com/"><meta property="og:image" content="https://postwatch.example.com/preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#14263f">
+<link rel="stylesheet" href="assets/style.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"PostWatch","url":"https://postwatch.example.com/"}</script>
+</head>
+<body>
+<header class="top"><div class="wrap bar">
+  <a class="brand" href="#"><span class="logo">PW</span> PostWatch</a>
+  <nav><a href="#bids">Open bids</a><a href="#awards">Recent awards</a><a href="#faq">FAQ</a></nav>
+</div></header>
+<section class="hero"><div class="wrap">
+  <h1>Open security guard &amp; patrol bids, in one place</h1>
+  <p>Free list of active federal and state solicitations for guard, armed guard and patrol services. Updated daily from SAM.gov and public state portals.</p>
+  <div class="stats" id="stats"></div>
+  <p class="updated" id="updated"></p>
+</div></section>
+
+<main class="wrap">
+  <section id="bids">
+    <div class="tabs" role="tablist">
+      <button class="tab active" data-view="all">All open</button>
+      <button class="tab" data-view="soon">Closing soon (14 days)</button>
+      <button class="tab" data-view="new">New this week</button>
+    </div>
+    <div class="filters">
+      <input id="q" type="search" placeholder="Search title, agency, city…" aria-label="Search">
+      <select id="fState" aria-label="State"><option value="">All states</option></select>
+      <select id="fType" aria-label="Notice type"><option value="">All notice types</option></select>
+      <select id="fSet" aria-label="Set-aside"><option value="">Any set-aside</option></select>
+      <select id="fSrc" aria-label="Source"><option value="">Federal + state</option><option value="federal">Federal</option><option value="state">State/local</option></select>
+    </div>
+    <p class="count" id="count"></p>
+    <div class="tablewrap"><table id="tbl"><thead><tr>
+      <th data-k="title">Opportunity</th><th data-k="state">Location</th><th data-k="type">Type</th><th data-k="setAside">Set-aside</th><th data-k="posted">Posted</th><th data-k="deadline">Deadline ▲</th>
+    </tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card" id="states"><h2>Open bids by state</h2><div id="stateList" class="chips"></div></section>
+    <aside class="card sponsor"><span class="tag">Sponsor</span><h3>Your company here</h3><p>Reach guard company owners and bid managers. <!-- TODO: sponsor slot --> Sponsorships opening soon.</p></aside>
+  </div>
+
+  <section id="awards"><h2>Recent federal awards, NAICS 561612</h2>
+    <p class="muted" id="awardsNote"></p>
+    <div class="tablewrap"><table id="awTbl"><thead><tr><th>Recipient</th><th>Agency</th><th>State</th><th>Period</th><th class="r">Amount</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <div class="grid2">
+    <section class="card signup"><h2>Weekly bid digest</h2><p>New guard &amp; patrol bids every Monday. Free.</p>
+      <!-- TODO: connect newsletter provider -->
+      <form onsubmit="event.preventDefault();this.querySelector('p').hidden=false"><input type="email" required placeholder="you@company.com" aria-label="Email"><button>Notify me</button><p hidden class="muted">Thanks. The newsletter is launching soon.</p></form>
+    </section>
+    <section class="card"><span class="tag">Tools</span><h2>Running guard posts?</h2><p>Scheduling, GPS patrol tracking and post orders software for security companies. <!-- TODO: referral link for guard management software --> <a href="#" aria-disabled="true">Recommended tools coming soon</a></p></section>
+  </div>
+
+  <section id="faq"><h2>About &amp; FAQ</h2>
+    <details open><summary>What is PostWatch?</summary><p>A free, independent list of open security guard, armed/unarmed guard and patrol services opportunities. We pull from public sources (SAM.gov Contract Opportunities, state procurement portals) and recent awards from USAspending.gov.</p></details>
+    <details><summary>How do I bid on a federal guard contract?</summary><p>Open the notice on SAM.gov, download the solicitation and attachments, check the set-aside and required licenses (state guard licensing, armed qualifications, insurance), attend any site visit, submit questions by the Q&amp;A deadline, then submit your proposal exactly as the instructions say before the response deadline.</p></details>
+    <details><summary>How do I register in SAM.gov?</summary><p>Create a Login.gov account, then register your entity at SAM.gov to get a Unique Entity ID (UEI). Have your EIN, bank info and NAICS codes (561612 Security Guards and Patrol Services) ready. Registration is free and must be renewed every year. It usually takes 1-4 weeks to become active.</p></details>
+    <details><summary>What do the notice types mean?</summary><p><b>Sources Sought</b>: market research, so respond to get on the radar. <b>Presolicitation</b>: a bid is coming. <b>Solicitation / Combined Synopsis</b>: open for proposals now.</p></details>
+    <details><summary>What is a set-aside?</summary><p>Contracts reserved for certain businesses, for example Small Business, 8(a), SDVOSB, WOSB or HUBZone. Your certifications determine which ones you can bid on.</p></details>
+  </section>
+</main>
+<footer><div class="wrap">
+  <p>Data comes from public sources: SAM.gov, USAspending.gov and the Texas ESBD. It may be incomplete or out of date, so <b>always verify details on the original notice</b> before you bid. PostWatch is not affiliated with any government agency.</p>
+  <p class="muted">© <span id="yr"></span> PostWatch</p>
+</div></footer>
+<script src="assets/app.js"></script>
+</body></html>
