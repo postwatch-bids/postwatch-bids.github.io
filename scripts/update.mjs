@@ -17,9 +17,30 @@ const category = t => SYSTEMS.test(t) && !/\bguards?\b|patrol|officers?\b/i.test
 const LA_CITIES = /\b(los angeles|long beach|pasadena|santa monica|burbank|glendale|torrance|inglewood|compton|carson|downey|el monte|pomona|west covina|norwalk|lancaster|palmdale|santa clarita|whittier|alhambra|hawthorne|gardena|culver city|beverly hills|el segundo|lakewood|bellflower|redondo beach|manhattan beach|san pedro|wilmington|van nuys|north hollywood|sylmar|san fernando|monterey park|arcadia|montebello|cerritos|lynwood|south gate|huntington park|paramount|azusa|covina|diamond bar|la mirada|claremont|calabasas|malibu|marina del rey|playa vista|vernon|bell gardens|rosemead|baldwin park|la puente|lomita|signal hill|port hueneme|los alamitos|seal beach|fort macarthur)\b/i;
 const isLA = b => b.county === 'Los Angeles';
 const isGuardText = t => (KW.test(t) || /\b(guards?|patrol)\b|security (officer|services|personnel)/i.test(t)) && !EXCLUDE.test(t);
+const ARMED = /\b(armed (security|guards?|officers?|protective|personnel|services)|armed\b(?!\s*forces)|firearms?|weapons? qualif|guard card with exposed firearm|bsis firearm)/i;
+const UNARMED = /\bun-?armed\b|\bnon-?armed\b/i;
+const EXPERIENCE = /\b(\d+|one|two|three|four|five|six|seven|eight|ten)\s*(\(\d+\)\s*)?(\+\s*)?years?\b[^.]{0,80}\b(experience|in business|performing|providing|past performance)|\bminimum (of )?(\d+|one|two|three|four|five)\b[^.]{0,40}\byears?|minimum qualifications?[^.]{0,120}\byears?\b/i;
+function classify(b) {
+  const t = b.title || '', d = b._desc || '';
+  const armedT = ARMED.test(t.replace(/unarmed/ig, '')), unarmedT = UNARMED.test(t);
+  const armedD = ARMED.test(d.replace(/un-?armed/ig, '')), unarmedD = UNARMED.test(d);
+  let arms = 'Unspecified';
+  if (unarmedT && !armedT) arms = 'Unarmed'; else if (armedT && !unarmedT) arms = 'Armed';
+  else if (armedT && unarmedT) arms = 'Armed';
+  else if (unarmedD && !armedD) arms = 'Unarmed'; else if (armedD && !unarmedD) arms = 'Armed'; else if (armedD) arms = 'Armed';
+  const patrol = /\bpatrol/i.test(t + ' ' + d.slice(0, 2000));
+  const aviation = /\b(airport|aviation|airfield|faa|tsa)\b/i.test(t + ' ' + (b.agency || '') + ' ' + (b.subAgency || ''));
+  const hasDesc = d.length > 200, exp = EXPERIENCE.test(d);
+  let fit;
+  if (aviation || arms === 'Armed' || exp || b.category === 'systems') fit = 'No';
+  else if ((arms === 'Unarmed' || patrol) && hasDesc) fit = 'Yes';
+  else fit = 'Check'; // unspecified arms, or no description text to check experience minimums
+  return { arms, fit, fitWhy: [aviation && 'aviation', arms === 'Armed' && 'armed', exp && 'experience minimum', !hasDesc && 'no description text', arms === 'Unspecified' && !patrol && 'armed/unarmed not stated'].filter(Boolean).join(', ') };
+}
 const sources = {};
 const now = new Date();
 const today = now.toISOString().slice(0, 10);
+const laToday = now.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
 
 const clean = s => (s ?? '').toString().replace(/\s+/g, ' ').trim();
 function isoDate(s) { if (!s) return null; const d = new Date(s); return isNaN(d) ? null : d.toISOString(); }
@@ -48,7 +69,7 @@ async function fetchSamCsv() {
       solicitation: clean(r['Sol#']), agency: clean(r['Department/Ind.Agency']), subAgency: clean(r['Sub-Tier']), office: clean(r.Office),
       zip: clean(r.PopZip), state: clean(r.PopState), city: clean(r.PopCity) || (title.match(/,\s*([A-Z][a-z]+(?: [A-Z][a-z]+)*) Area\b/)?.[1] ?? '') + (clean(r.PopCity) || !/ Area\b/.test(title) ? '' : ' area'), // performance location only; never fall back to office city
       type, posted: isoDate(r.PostedDate), deadline, setAside: clean(r.SetASide) || 'None', naics,
-      category: category(title), url: clean(r.Link) || `https://sam.gov/opp/${clean(r.NoticeId)}/view`,
+      _desc: (r.Description || '').slice(0, 20000), category: category(title), url: clean(r.Link) || `https://sam.gov/opp/${clean(r.NoticeId)}/view`,
     });
   }
   sources.sam = { ok: true, method: 'public CSV extract (keyless)', rowsScanned: rows, matched: out.length };
@@ -176,11 +197,11 @@ async function fetchOpenGov() {
         for (const p of open) {
           const t = clean(p.title);
           if (!isGuardText(t)) continue;
-          const deadline = isoDate(p.proposalDeadline);
+          const deadline = isoDate(p.proposalDeadline); const _desc = clean(String(p.summary || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' '));
           if (deadline && deadline < now.toISOString()) continue;
           out.push({ id: `og-${g.code}-${p.id}`, src: 'local', source: 'OpenGov: ' + g.name, title: t, solicitation: clean(p.financialId), agency: g.name, subAgency: clean(p.department?.name),
             state: 'CA', city: g.city, county: g.county, type: clean(p.template?.title) || 'Solicitation', posted: isoDate(p.releaseProjectDate), deadline,
-            setAside: 'See notice', naics: '', category: category(t), url: `https://procurement.opengov.com/portal/${g.code}/projects/${p.id}` });
+            _desc, setAside: 'See notice', naics: '', category: category(t), url: `https://procurement.opengov.com/portal/${g.code}/projects/${p.id}` });
         }
         if (rows.length < 100 || open.length < rows.length) break; // open projects are listed first
       }
@@ -228,9 +249,18 @@ Object.assign(sources, {
 });
 sources.florida = { ok: false, skipped: true, note: 'Florida VBS search is form/JS-driven; skipped for MVP.' };
 
-const bids = [...fed, ...tx, ...lac, ...man, ...ramp, ...og].map(b => { const county = b.county || countyFor({ state: b.state, city: b.city, zip: b.zip, text: b.title + ' ' + (b.office || '') }); delete b.zip; return { ...b, county, socal: SOCAL_COUNTIES.includes(county), la: county === 'Los Angeles' }; }).sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999'));
+const bids = [...fed, ...tx, ...lac, ...man, ...ramp, ...og].map(b => { const county = b.county || countyFor({ state: b.state, city: b.city, zip: b.zip, text: b.title + ' ' + (b.office || '') }); delete b.zip; const c = classify(b); delete b._desc; return { ...b, ...c, county, socal: SOCAL_COUNTIES.includes(county), la: county === 'Los Angeles' }; }).sort((a, b) => (a.deadline || '9999').localeCompare(b.deadline || '9999'));
 const byState = {}; for (const b of bids) { const s = b.state || '??'; byState[s] = (byState[s] || 0) + 1; }
-const latest = { generatedAt: now.toISOString(), sources, counts: { total: bids.length, federal: fed.length, state: tx.length + lac.length + ramp.length + og.length, community: man.length, ca: bids.filter(b => b.state === 'CA').length, socal: bids.filter(b => b.socal).length, la: bids.filter(b => b.la).length, awards: awards.length }, byState, bids, awards };
+const latest = { generatedAt: now.toISOString(), sources, counts: { total: bids.length, federal: fed.length, state: tx.length + lac.length + ramp.length + og.length, community: man.length, ca: bids.filter(b => b.state === 'CA').length, socal: bids.filter(b => b.socal).length, smallFit: bids.filter(b => b.fit === 'Yes').length, la: bids.filter(b => b.la).length, awards: awards.length }, byState, bids, awards };
+// Owner tracking file: SoCal small-firm-fit bids with first_seen (not part of the public site build).
+{
+  const f = 'data/neom-fit.json';
+  const prev = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : { bids: [] };
+  const seen = new Map((prev.bids || []).map(b => [b.id, b.first_seen]));
+  const list = bids.filter(b => b.socal && b.fit !== 'No').map(b => ({ id: b.id, fit: b.fit, arms: b.arms, title: b.title, agency: b.agency, county: b.county, city: b.city,
+    deadline: b.deadline, url: b.url, source: b.source, first_seen: seen.get(b.id) || laToday }));
+  if (bids.length) fs.writeFileSync(f, JSON.stringify({ updated: now.toISOString(), note: "fit: Yes = unarmed/patrol, not aviation, no experience-minimum text found; Check = could not confirm", new_today: list.filter(b => b.first_seen === laToday).map(b => b.id), bids: list }, null, 1));
+}
 // Keep previous data if every bid source failed.
 const file = path.resolve('data/latest.json');
 if (!bids.length && fs.existsSync(file)) { console.error('No bids fetched; keeping previous data'); process.exit(1); }

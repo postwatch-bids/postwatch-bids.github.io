@@ -43,3 +43,5 @@ details{background:#fff;border:1px solid var(--line);border-radius:6px;padding:1
 @media(max-width:760px){.subform{grid-template-columns:1fr 1fr}.subform label:first-child,.subform label:nth-child(2),.subform .wide{grid-column:1/-1}}
 .badge.socal{background:#e3eefa;color:#1f4f86}.badge.cty{background:#eef0f2;color:#4a5866}
 @media(min-width:761px){.filters{grid-template-columns:2fr repeat(6,1fr)}}
+.badge.arms-Armed{background:#f6e3df;color:#8a2f1f}.badge.arms-Unarmed{background:#e4f1ec;color:#22634a}.badge.arms-Unspecified{background:#f0f0f0;color:#666}.badge.fit{background:#2c6a35;color:#fff}.badge.chk{background:#fff4d6;color:#7a5a00}
+@media(min-width:761px){.filters{grid-template-columns:2fr repeat(7,1fr)}}
