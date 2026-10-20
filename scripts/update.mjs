@@ -254,7 +254,7 @@ const byState = {}; for (const b of bids) { const s = b.state || '??'; byState[s
 const latest = { generatedAt: now.toISOString(), sources, counts: { total: bids.length, federal: fed.length, state: tx.length + lac.length + ramp.length + og.length, community: man.length, ca: bids.filter(b => b.state === 'CA').length, socal: bids.filter(b => b.socal).length, smallFit: bids.filter(b => b.fit === 'Yes').length, la: bids.filter(b => b.la).length, awards: awards.length }, byState, bids, awards };
 // Owner tracking file: SoCal small-firm-fit bids with first_seen (not part of the public site build).
 {
-  const f = 'data/neom-fit.json';
+  const f = 'data/socal-fit.json';
   const prev = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : { bids: [] };
   const seen = new Map((prev.bids || []).map(b => [b.id, b.first_seen]));
   const list = bids.filter(b => b.socal && b.fit !== 'No').map(b => ({ id: b.id, fit: b.fit, arms: b.arms, title: b.title, agency: b.agency, county: b.county, city: b.city,
