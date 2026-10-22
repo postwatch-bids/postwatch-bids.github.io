@@ -1,7 +1,9 @@
 {
- "updated": "2026-10-21T23:35:58.906Z",
+ "updated": "2026-10-22T13:55:15.479Z",
  "note": "fit: Yes = unarmed/patrol, not aviation, no experience-minimum text found; Check = could not confirm",
- "new_today": [],
+ "new_today": [
+  "7bc432b82d064b0e8beaa6720d8476d6"
+ ],
  "bids": [
   {
    "id": "08b26aaba6684b18a18ced5d7d22fe59",
@@ -15,6 +17,19 @@
    "url": "https://sam.gov/workspace/contract/opp/08b26aaba6684b18a18ced5d7d22fe59/view",
    "source": "SAM.gov",
    "first_seen": "2026-10-19"
+  },
+  {
+   "id": "7bc432b82d064b0e8beaa6720d8476d6",
+   "fit": "Yes",
+   "arms": "Unarmed",
+   "title": "S206--691 | North Campus Security Staffing | PoP: 05/01/2026 - 04/30/2027",
+   "agency": "VETERANS AFFAIRS, DEPARTMENT OF",
+   "county": "Los Angeles",
+   "city": "Los Angeles",
+   "deadline": "2026-10-30T19:00:00.000Z",
+   "url": "https://sam.gov/workspace/contract/opp/7bc432b82d064b0e8beaa6720d8476d6/view",
+   "source": "SAM.gov",
+   "first_seen": "2026-10-22"
   },
   {
    "id": "dd2a1e1eb1f4418eb7161a7190a0850f",
