@@ -20,6 +20,24 @@ const isGuardText = t => (KW.test(t) || /\b(guards?|patrol)\b|security (officer|
 const ARMED = /\b(armed (security|guards?|officers?|protective|personnel|services)|armed\b(?!\s*forces)|firearms?|weapons? qualif|guard card with exposed firearm|bsis firearm)/i;
 const UNARMED = /\bun-?armed\b|\bnon-?armed\b/i;
 const EXPERIENCE = /\b(\d+|one|two|three|four|five|six|seven|eight|ten)\s*(\(\d+\)\s*)?(\+\s*)?years?\b[^.]{0,80}\b(experience|in business|performing|providing|past performance)|\bminimum (of )?(\d+|one|two|three|four|five)\b[^.]{0,40}\byears?|minimum qualifications?[^.]{0,120}\byears?\b/i;
+const NOT_BIDDABLE = /sources? sought|special notice|presolicitation|pre-solicitation|award|request for information|\bRFI\b|intent to/i;
+function restrictedSetAside(s = '') {
+  if (/SDVOSB|service-disabled/i.test(s)) return 'SDVOSB';
+  if (/EDWOSB|economically disadvantaged women/i.test(s)) return 'EDWOSB';
+  if (/WOSB|women-owned/i.test(s)) return 'WOSB';
+  if (/hubzone/i.test(s)) return 'HUBZone';
+  if (/\b8\s*\(a\)|\b8a\b/i.test(s)) return '8(a)';
+  if (/VOSB|veteran-owned/i.test(s)) return 'VOSB';
+  if (/indian|ISBEE|native/i.test(s)) return 'Indian Economic Enterprise';
+  return '';
+}
+function setAsideShort(s = '') {
+  const r = restrictedSetAside(s); if (r) return r;
+  if (/small business.*partial/i.test(s)) return 'Small Business (Partial)';
+  if (/small business/i.test(s)) return 'Total Small Business';
+  if (/^(none|no set aside used)$/i.test(s.trim()) || !s) return 'None';
+  return s;
+}
 function classify(b) {
   const t = b.title || '', d = b._desc || '';
   const armedT = ARMED.test(t.replace(/unarmed/ig, '')), unarmedT = UNARMED.test(t);
@@ -35,7 +53,13 @@ function classify(b) {
   if (aviation || arms === 'Armed' || exp || b.category === 'systems') fit = 'No';
   else if ((arms === 'Unarmed' || patrol) && hasDesc) fit = 'Yes';
   else fit = 'Check'; // unspecified arms, or no description text to check experience minimums
-  return { arms, fit, fitWhy: [aviation && 'aviation', arms === 'Armed' && 'armed', exp && 'experience minimum', !hasDesc && 'no description text', arms === 'Unspecified' && !patrol && 'armed/unarmed not stated'].filter(Boolean).join(', ') };
+  const why = [];
+  const sa = restrictedSetAside(b.setAside);
+  const notBiddable = NOT_BIDDABLE.test(b.type || '');
+  if (sa) { fit = 'No'; why.push(`${sa} set-aside (certified firms only)`); }
+  else if (notBiddable && fit !== 'No') { fit = 'Watch'; why.push(`${b.type}: market research only, not biddable yet`); }
+  if (notBiddable && fit === 'No') why.push(`${b.type}: market research only, not biddable yet`);
+  return { arms, fit, noticeType: b.type || '', setAsideType: setAsideShort(b.setAside), fitWhy: [...why, aviation && 'aviation', arms === 'Armed' && 'armed', exp && 'experience minimum', !hasDesc && 'no description text', arms === 'Unspecified' && !patrol && 'armed/unarmed not stated'].filter(Boolean).join(', ') };
 }
 const sources = {};
 const now = new Date();
@@ -257,9 +281,9 @@ const latest = { generatedAt: now.toISOString(), sources, counts: { total: bids.
   const f = 'data/socal-fit.json';
   const prev = fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : { bids: [] };
   const seen = new Map((prev.bids || []).map(b => [b.id, b.first_seen]));
-  const list = bids.filter(b => b.socal && b.fit !== 'No').map(b => ({ id: b.id, fit: b.fit, arms: b.arms, title: b.title, agency: b.agency, county: b.county, city: b.city,
+  const list = bids.filter(b => b.socal && b.fit !== 'No').map(b => ({ id: b.id, fit: b.fit, fitWhy: b.fitWhy, noticeType: b.noticeType, setAsideType: b.setAsideType, arms: b.arms, title: b.title, agency: b.agency, county: b.county, city: b.city,
     deadline: b.deadline, url: b.url, source: b.source, first_seen: seen.get(b.id) || laToday }));
-  if (bids.length) fs.writeFileSync(f, JSON.stringify({ updated: now.toISOString(), note: "fit: Yes = unarmed/patrol, not aviation, no experience-minimum text found; Check = could not confirm", new_today: list.filter(b => b.first_seen === laToday).map(b => b.id), bids: list }, null, 1));
+  if (bids.length) fs.writeFileSync(f, JSON.stringify({ updated: now.toISOString(), note: "fit: Yes = unarmed/patrol, not aviation, no experience-minimum text found, open solicitation, no certified-firm set-aside; Watch = market research/presolicitation (not biddable yet); Check = could not confirm", new_today: list.filter(b => b.first_seen === laToday).map(b => b.id), bids: list }, null, 1));
 }
 // Keep previous data if every bid source failed.
 const file = path.resolve('data/latest.json');
