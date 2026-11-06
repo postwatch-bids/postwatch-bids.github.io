@@ -256,9 +256,33 @@ async function fetchAwards() {
   return out;
 }
 
+// SAM.gov posts amendments under new NoticeIds while older rows can stay Active=Yes
+// in the public CSV. Collapse federal notices that share a Sol# to the newest posting.
+function preferNewerNotice(a, b) {
+  const ap = a.posted || '', bp = b.posted || '';
+  if (ap !== bp) return ap > bp ? a : b;
+  const ad = a.deadline || '', bd = b.deadline || '';
+  if (ad !== bd) return ad > bd ? a : b;
+  return String(a.id) >= String(b.id) ? a : b;
+}
+function dedupeFederalBySolicitation(list) {
+  const bySol = new Map(), noSol = [];
+  let dropped = 0;
+  for (const b of list) {
+    const sol = clean(b.solicitation);
+    if (!sol) { noSol.push(b); continue; }
+    const prev = bySol.get(sol);
+    if (!prev) bySol.set(sol, b);
+    else { bySol.set(sol, preferNewerNotice(prev, b)); dropped++; }
+  }
+  return { bids: [...noSol, ...bySol.values()], dropped };
+}
+
 async function safe(name, fn) { try { return await fn(); } catch (e) { console.error(name, 'FAILED:', e.message); sources[name] = { ok: false, error: e.message }; return []; } }
 
-const [fed, tx, lac, man, ramp, og, awards] = await Promise.all([safe('sam', fetchSamCsv), safe('texas', fetchTexasEsbd), safe('lacounty', fetchLACounty), safe('community', fetchManual), safe('rampla', fetchRampLA), safe('opengov', fetchOpenGov), safe('usaspending', fetchAwards)]);
+const [fedRaw, tx, lac, man, ramp, og, awards] = await Promise.all([safe('sam', fetchSamCsv), safe('texas', fetchTexasEsbd), safe('lacounty', fetchLACounty), safe('community', fetchManual), safe('rampla', fetchRampLA), safe('opengov', fetchOpenGov), safe('usaspending', fetchAwards)]);
+const { bids: fed, dropped: samDedupeDropped } = dedupeFederalBySolicitation(fedRaw);
+if (sources.sam?.ok) sources.sam.dedupedBySolicitation = samDedupeDropped;
 Object.assign(sources, {
   caleprocure: { ok: false, skipped: true, note: 'Cal eProcure returns 403 to non-browser clients (WAF). Not bypassed.' },
   planetbids: { ok: false, skipped: true, note: 'PlanetBids API rejects direct access (DIRECT_ACCESS) and portals redirect to a JS app; not bypassed. Covers Long Beach, Pasadena, Santa Monica, Burbank, Glendale, Torrance, San Diego etc.' },

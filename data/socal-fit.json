@@ -1,23 +1,6 @@
 {
- "updated": "2026-11-06T14:25:20.771Z",
+ "updated": "2026-11-06T19:28:18.970Z",
  "note": "fit: Yes = unarmed/patrol, not aviation, no experience-minimum text found, open solicitation, no certified-firm set-aside; Watch = market research/presolicitation (not biddable yet); Check = could not confirm",
  "new_today": [],
- "bids": [
-  {
-   "id": "dd2a1e1eb1f4418eb7161a7190a0850f",
-   "fit": "Check",
-   "fitWhy": "no description text, armed/unarmed not stated",
-   "noticeType": "Combined Synopsis/Solicitation",
-   "setAsideType": "None",
-   "arms": "Unspecified",
-   "title": "Protective Security Officer Services, Los Angeles Area",
-   "agency": "HOMELAND SECURITY, DEPARTMENT OF",
-   "county": "Los Angeles",
-   "city": "Los Angeles area",
-   "deadline": "2026-11-20T17:00:00.000Z",
-   "url": "https://sam.gov/workspace/contract/opp/dd2a1e1eb1f4418eb7161a7190a0850f/view",
-   "source": "SAM.gov",
-   "first_seen": "2026-10-19"
-  }
- ]
+ "bids": []
 }
