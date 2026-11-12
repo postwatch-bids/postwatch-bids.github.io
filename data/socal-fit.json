@@ -1,6 +1,25 @@
 {
- "updated": "2026-11-12T14:25:53.544Z",
+ "updated": "2026-11-12T23:46:51.453Z",
  "note": "fit: Yes = unarmed/patrol, not aviation, no experience-minimum text found, open solicitation, no certified-firm set-aside; Watch = market research/presolicitation (not biddable yet); Check = could not confirm",
- "new_today": [],
- "bids": []
+ "new_today": [
+  "og-pasadena-321560"
+ ],
+ "bids": [
+  {
+   "id": "og-pasadena-321560",
+   "fit": "Yes",
+   "fitWhy": "",
+   "noticeType": "Request for Proposals (Competitive Selection PMC 4.08.047)",
+   "setAsideType": "See notice",
+   "arms": "Unarmed",
+   "title": "Caltrans Real Properties: Security Services",
+   "agency": "City of Pasadena",
+   "county": "Los Angeles",
+   "city": "Pasadena",
+   "deadline": "2026-12-04T22:00:00.000Z",
+   "url": "https://procurement.opengov.com/portal/pasadena/projects/321560",
+   "source": "OpenGov: City of Pasadena",
+   "first_seen": "2026-11-12"
+  }
+ ]
 }
